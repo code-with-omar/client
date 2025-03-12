@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Untitled Document</title>
+    <style>
+      @import url("https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css");
+      @import url("https://fonts.googleapis.com/css?family=Roboto:500,700,400");
+      * {
+        -webkit-font-smoothing: antialiased;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0px;
+        height: 100%;
+      }
+      /* a blue color as a generic focus style */
+      button:focus-visible {
+        outline: 2px solid #4a90e2 !important;
+        outline: -webkit-focus-ring-color auto 5px !important;
+      }
+      a {
+        text-decoration: none;
+      }
+
+      /* Additional global styles for accessibility */
+      :focus {
+        outline: 2px solid #4a90e2;
+        outline-offset: 2px;
+      }
+
+      .visually-hidden {
+        position: absolute;
+        clip: rect(0 0 0 0);
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        padding: 0;
+        width: 1px;
+        white-space: nowrap;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+
+      #quizContainer {
+        display: flex;
+        justify-content: center;
+        align-items: start;
+        position: relative;
+
+        gap: 20px;
+      }
+
+      #terms {
+        width: 230px;
+        padding: 10px;
+        /* Light grey background to differentiate areas */
+      }
+
+      #answers {
+        width: 510px;
+        padding: 10px;
+        /* Slightly different grey for contrast */
+      }
+
+      .term,
+      .answer {
+        padding: 8px;
+        margin: 20px;
+        height: 80px;
+        background-color: #fff;
+        border: 1px solid black;
+        cursor: pointer;
+        user-select: none; /* Prevents text selection during drag */
+        text-align: center;
+        position: relative;
+      }
+
+      .term {
+        font-family: "Roboto", Helvetica;
+        font-weight: 700;
+        color: #000000;
+        font-size: 18px;
+        text-align: center;
+        display: flex;
+        width: 230px;
+        height: 80px;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 20px 10px;
+        position: relative;
+        border: 4px solid;
+        border-color: transparent;
+        border-image: linear-gradient(
+            to bottom,
+            rgb(255, 255, 255),
+            rgba(255, 255, 255, 0) 51%,
+            rgb(255, 255, 255) 100%
+          )
+          1;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.3) 0%,
+          rgba(249.77, 249.77, 249.77, 0.3) 100%
+        );
+      }
+
+      .answer {
+        flex: 1;
+        font-family: "Roboto", Helvetica;
+        font-weight: 500;
+        color: #000000;
+        font-size: 18px;
+        text-align: center;
+        letter-spacing: 0;
+        display: flex;
+        width: 510px;
+        height: 80px;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 20px 10px;
+        position: relative;
+        border: 2px solid;
+        border-color: transparent;
+        box-shadow: inset 0px 0px 10px #ffffff, 0px 0px 10px #ffbc004f;
+        border-image: linear-gradient(
+            to bottom,
+            rgb(255, 255, 255),
+            rgba(255, 255, 255, 0) 51%,
+            rgb(255, 255, 255) 100%
+          )
+          1;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.05) 0%,
+          rgba(249.77, 249.77, 249.77, 0.05) 100%
+        );
+      }
+
+      #svgContainer {
+        background-image: url("img/background1.webp");
+      }
+
+      #feedbackMessage {
+        position: relative;
+      }
+
+      @keyframes fadeInOut {
+        0%,
+        100% {
+          opacity: 0;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/Draggable.min.js"></script>
+
+    <script>
+      // Disable right-click
+      document.addEventListener("contextmenu", (event) =>
+        event.preventDefault()
+      );
+
+      // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+      document.addEventListener("keydown", (event) => {
+        if (
+          event.key === "F12" ||
+          (event.ctrlKey &&
+            event.shiftKey &&
+            (event.key === "I" || event.key === "J")) ||
+          (event.ctrlKey && event.key === "U")
+        ) {
+          event.preventDefault();
+        }
+      });
+
+      window.addEventListener("DOMContentLoaded", setup);
+
+      function setup() {
+        gsap.registerPlugin(Draggable);
+
+        // Make both terms and answers draggable
+        Draggable.create(".term, .answer", {
+          type: "x,y",
+          bounds: "#quizContainer",
+          onRelease: function () {
+            checkDrop(this);
+          },
+        });
+      }
+
+      function checkDrop(draggable) {
+        let matchedItem = null;
+
+        // Determine the target type based on what is being dragged
+        const targetType = draggable.target.classList.contains("term")
+          ? ".answer"
+          : ".term";
+        const targetAttribute = draggable.target.classList.contains("term")
+          ? "data-term"
+          : "data-answer";
+        const draggableAttribute = draggable.target.classList.contains("term")
+          ? "data-answer"
+          : "data-term";
+
+        document.querySelectorAll(targetType).forEach((target) => {
+          const targetBounds = target.getBoundingClientRect();
+          const draggableBounds = draggable.target.getBoundingClientRect();
+
+          // Check if draggable overlaps with target (not just center alignment)
+          const isOverlapping = !(
+            (
+              targetBounds.right < draggableBounds.left || // Too far left
+              targetBounds.left > draggableBounds.right || // Too far right
+              targetBounds.bottom < draggableBounds.top || // Too far up
+              targetBounds.top > draggableBounds.bottom
+            ) // Too far down
+          );
+
+          if (
+            isOverlapping &&
+            target.getAttribute(targetAttribute) ===
+              draggable.target.getAttribute(draggableAttribute)
+          ) {
+            matchedItem = target;
+          }
+        });
+
+        if (matchedItem) {
+          displayCorrectFeedback(draggable.target, matchedItem);
+        } else {
+          // Snap back to the original position if no match is found
+          gsap.to(draggable.target, { x: 0, y: 0 });
+        }
+      }
+
+      function displayCorrectFeedback(matchedItem1, matchedItem2) {
+        const term = matchedItem1.classList.contains("term")
+          ? matchedItem1.textContent
+          : matchedItem2.textContent;
+        const definition = matchedItem1.classList.contains("term")
+          ? matchedItem2.textContent
+          : matchedItem1.textContent;
+
+        document.getElementById(
+          "feedbackMessage"
+        ).innerHTML += `<strong>${term}:</strong> ${definition}<br>`;
+
+        // Fade out and remove both matched items
+        gsap.to([matchedItem1, matchedItem2], {
+          opacity: 0,
+          onComplete: () => {
+            matchedItem1.remove();
+            matchedItem2.remove();
+          },
+        });
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="svgContainer" style="position: relative">
+      <img src="img/background2.webp" style="width:100%; height:100%;
+      position:absolute; top:0; left:0; animation: fadeInOut 5s infinite; />
+      <!-- Normal SVGs for looping cross-fade -->
+
+      <!-- Response SVGs -->
+      <svg
+        id="wrongSVG"
+        style="
+          opacity: 0;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        "
+        xmlns="http://www.w3.org/2000/svg"
+        version="1.1"
+        xmlns:xlink="http://www.w3.org/1999/xlink"
+        xmlns:svgjs="http://svgjs.dev/svgjs"
+        viewBox="0 0 700 700"
+        width="700"
+        height="700"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient
+            gradientTransform="rotate(150, 0.5, 0.5)"
+            x1="50%"
+            y1="0%"
+            x2="50%"
+            y2="100%"
+            id="ffflux-gradient"
+          >
+            <stop
+              stop-color="hsl(353, 98%, 41%)"
+              stop-opacity="1"
+              offset="0%"
+            ></stop>
+            <stop
+              stop-color="hsl(14, 100%, 50%)"
+              stop-opacity="1"
+              offset="100%"
+            ></stop>
+          </linearGradient>
+          <filter
+            id="ffflux-filter"
+            x="-20%"
+            y="-20%"
+            width="140%"
+            height="140%"
+            filterUnits="objectBoundingBox"
+            primitiveUnits="userSpaceOnUse"
+            color-interpolation-filters="sRGB"
+          >
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.005 0.003"
+              numOctaves="2"
+              seed="2"
+              stitchTiles="stitch"
+              x="0%"
+              y="0%"
+              width="100%"
+              height="100%"
+              result="turbulence"
+            ></feTurbulence>
+            <feGaussianBlur
+              stdDeviation="20 0"
+              x="0%"
+              y="0%"
+              width="100%"
+              height="100%"
+              in="turbulence"
+              edgeMode="duplicate"
+              result="blur"
+            ></feGaussianBlur>
+            <feBlend
+              mode="color-dodge"
+              x="0%"
+              y="0%"
+              width="100%"
+              height="100%"
+              in="SourceGraphic"
+              in2="blur"
+              result="blend"
+            ></feBlend>
+          </filter>
+        </defs>
+        <rect
+          width="700"
+          height="700"
+          fill="url(#ffflux-gradient)"
+          filter="url(#ffflux-filter)"
+        ></rect>
+      </svg>
+
+      <svg id="correctSVG" style="opacity: 0; width: 0; height: 0">...</svg>
+      <div id="quizContainer">
+        <div id="terms">
+          <!-- Draggable terms -->
+          <div class="term" data-term="Regression" id="term-Regression">
+            Regression
+          </div>
+          <div class="term" data-term="Black Boxes" id="term-Black Boxes">
+            Black Boxes
+          </div>
+          <div class="term" data-term="Poison" id="term-Poison">Poison</div>
+          <div class="term" data-term="Neural Network" id="term-Neural Network">
+            Neural Network
+          </div>
+          <div class="term" data-term="Value Chain" id="term-Value Chain">
+            Value Chain
+          </div>
+          <div class="term" data-term="Hallucination" id="term-Hallucination">
+            Hallucination
+          </div>
+          <div
+            class="term"
+            data-term="Linear Regression"
+            id="term-Linear Regression"
+          >
+            Linear Regression
+          </div>
+          <div class="term" data-term="Defensible AI" id="term-Defensible AI">
+            Defensible AI
+          </div>
+        </div>
+        <div id="answers">
+          <!-- Droppable answers -->
+          <div class="answer" data-answer="Regression" id="answer-Regression">
+            Predicting continuous values based on input data.
+          </div>
+          <div class="answer" data-answer="Black Boxes" id="answer-Black Boxes">
+            AI models with unclear decision-making processes.
+          </div>
+          <div class="answer" data-answer="Poison" id="answer-Poison">
+            Corrupting training data to manipulate AI behavior.
+          </div>
+          <div
+            class="answer"
+            data-answer="Neural Network"
+            id="answer-Neural Network"
+          >
+            Layers of nodes mimicking brain function for learning.
+          </div>
+          <div class="answer" data-answer="Value Chain" id="answer-Value Chain">
+            AI's role in creating and delivering value.
+          </div>
+          <div
+            class="answer"
+            data-answer="Hallucination"
+            id="answer-Hallucination"
+          >
+            AI generating false or misleading information.
+          </div>
+          <div
+            class="answer"
+            data-answer="Linear Regression"
+            id="answer-Linear Regression"
+          >
+            Modeling relationships with a straight-line equation.
+          </div>
+          <div
+            class="answer"
+            data-answer="Defensible AI"
+            id="answer-Defensible AI"
+          >
+            AI designed for robustness, security, and fairness.
+          </div>
+        </div>
+      </div>
+      <div id="feedbackMessage"></div>
+    </div>
+  </body>
+</html>
